@@ -15,8 +15,11 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0"
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        ndk {
+            abiFilters += listOf("armeabi-v7a", "arm64-v8a") // native lib 병합 오류 방지
+        }
     }
 
     buildTypes {
@@ -28,22 +31,45 @@ android {
             )
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
     }
+
     kotlinOptions {
         jvmTarget = "11"
     }
+
     buildFeatures {
         compose = true
+        viewBinding = true
     }
+}
+configurations.all {
+    exclude(group = "com.mapbox.common", module = "okhttp")
 }
 
 dependencies {
+    // ✅ Firebase
     implementation(platform("com.google.firebase:firebase-bom:33.9.0"))
     implementation("com.google.firebase:firebase-analytics")
 
+    // ✅ 최신 Mapbox Maps SDK v10 기반만 유지 (충돌 방지)
+    implementation("com.mapbox.maps:android:11.11.0") // 최신 지도 SDK
+
+    //implementation("com.mapbox.search:offline:1.0.0-beta.43")
+    // ✅ 완벽하게 호환되는 조합
+    implementation("com.mapbox.navigationcore:android:3.9.0-rc.1")
+    implementation("com.mapbox.common:common:24.8.0")  // ← 다운그레이드!!
+
+
+    implementation("com.mapbox.mapboxsdk:mapbox-sdk-turf:5.8.0")
+
+
+
+
+    // ✅ AndroidX + Compose
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -52,6 +78,17 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
+    implementation(libs.play.services.maps)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.cardview)
+    implementation(libs.androidx.runner)
+    implementation(libs.androidx.espresso.core)
+    implementation(libs.androidx.recyclerview)
+    implementation(libs.androidx.coordinatorlayout)
+    implementation(libs.material)
+
+    // ✅ 테스트
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

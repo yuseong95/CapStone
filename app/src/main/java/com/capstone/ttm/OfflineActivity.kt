@@ -41,6 +41,7 @@ import com.mapbox.maps.plugin.annotation.generated.CircleAnnotationOptions
 import com.mapbox.maps.plugin.annotation.generated.createCircleAnnotationManager
 import com.capstone.ttm.R
 import com.capstone.ttm.databinding.ActivityOfflineBinding
+import com.mapbox.geojson.Polygon
 import kotlinx.coroutines.launch
 
 /**
@@ -49,7 +50,7 @@ import kotlinx.coroutines.launch
  *
  * Please refer to our [offline guide](https://docs.mapbox.com/android/maps/guides/offline/#limits) for the limitations of the offline usage.
  */
-class MainActivity : AppCompatActivity() {
+class OfflineActivity : AppCompatActivity() {
     // We use the default tile store
     private val tileStore: TileStore = MapboxOptions.mapsOptions.tileStore!!
     private val offlineManager: OfflineManager = OfflineManager()
@@ -88,7 +89,7 @@ class MainActivity : AppCompatActivity() {
         logInfoMessage("Mapbox network stack disabled.")
         lifecycleScope.launch {
             updateButton("VIEW SATELLITE STREET MAP") {
-                val context = this@MainActivity
+                val context = this@OfflineActivity
                 // create a Mapbox MapView
                 // Note that the MapView will use the current tile store set in MapboxOptions.mapsOptions.tileStore
                 // It must be the same TileStore that is used to create the tile regions. (i.e. the
@@ -111,23 +112,21 @@ class MainActivity : AppCompatActivity() {
     private fun prepareViewStandardMapButton(mapView: MapView) {
         lifecycleScope.launch {
             updateButton("VIEW STANDARD MAP") {
-                // Load standard style and animate camera to show 3D buildings.
-                mapView.mapboxMap.loadStyle(Style.STANDARD)
-                mapView.mapboxMap.flyTo(
-                    cameraOptions {
-                        center(
-                            Point.fromLngLat(
-                                139.76567069012344,
-                                35.68134814430844
-                            )
-                        )
-                        zoom(15.0)
-                        bearing(356.1)
-                        pitch(59.8)
-                    },
-                    mapAnimationOptions { duration(1000L) }
-                )
+                mapView.mapboxMap.loadStyle(Style.STANDARD) {
+                    mapView.mapboxMap.setCamera(
+                        CameraOptions.Builder()
+                            .center(HANSUNG_UNIV)
+                            .zoom(14.0)
+                            .build()
+                    )
+                }
                 prepareShowDownloadedRegionButton()
+                mapView.mapboxMap.setCamera(
+                    CameraOptions.Builder()
+                        .center(HANSUNG_UNIV)
+                        .zoom(14.0)
+                        .build()
+                )
             }
         }
     }
@@ -479,5 +478,6 @@ class MainActivity : AppCompatActivity() {
         private const val STYLE_PACK_SATELLITE_STREET_METADATA = "my-satellite-street-style-pack"
         private const val STYLE_PACK_STANDARD_METADATA = "my-standard-style-pack"
         private const val TILE_REGION_METADATA = "my-offline-region"
+
     }
 }
