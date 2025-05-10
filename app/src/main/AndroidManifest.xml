@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools"
     package="com.capstone.ttm">
-
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
@@ -31,6 +31,9 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+        <meta-data
+            android:name="com.mapbox.token"
+            android:value="sk.eyJ1IjoiaHVuOTI2NCIsImEiOiJjbTk3NnZkeTMwNGlqMmlwbGZ1a2F0MDY2In0.GjwPINRgqdA1OfEW0LjbGw" />
     </application>
 
 </manifest>

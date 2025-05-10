@@ -60,13 +60,9 @@ dependencies {
 
     //implementation("com.mapbox.search:offline:1.0.0-beta.43")
     // ✅ 완벽하게 호환되는 조합
+    implementation("com.mapbox.navigationcore:ui-components:3.9.0-rc.1")
     implementation("com.mapbox.navigationcore:android:3.9.0-rc.1")
     implementation("com.mapbox.common:common:24.8.0")  // ← 다운그레이드!!
-
-
-    implementation("com.mapbox.mapboxsdk:mapbox-sdk-turf:5.8.0")
-
-
 
 
     // ✅ AndroidX + Compose
@@ -87,6 +83,7 @@ dependencies {
     implementation(libs.androidx.recyclerview)
     implementation(libs.androidx.coordinatorlayout)
     implementation(libs.material)
+    implementation(libs.play.services.fitness)
 
     // ✅ 테스트
     testImplementation(libs.junit)

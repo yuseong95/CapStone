@@ -1,5 +1,6 @@
 package com.capstone.ttm
 
+import android.Manifest
 import android.annotation.SuppressLint
 import android.graphics.Color
 import android.os.Bundle
@@ -10,68 +11,91 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
+import androidx.annotation.RequiresPermission
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.capstone.ttm.R
+import com.capstone.ttm.databinding.ActivityOfflineBinding
+import com.mapbox.android.core.permissions.PermissionsListener
+import com.mapbox.android.core.permissions.PermissionsManager
+import com.mapbox.api.directions.v5.models.RouteOptions
 import com.mapbox.bindgen.Value
-import com.mapbox.common.Cancelable
-import com.mapbox.common.MapboxOptions
-import com.mapbox.common.NetworkRestriction
-import com.mapbox.common.OfflineSwitch
-import com.mapbox.common.TileRegionLoadOptions
-import com.mapbox.common.TileStore
+import com.mapbox.common.*
+import com.mapbox.common.BuildConfig
 import com.mapbox.geojson.Point
-import com.mapbox.maps.CameraOptions
-import com.mapbox.maps.GlyphsRasterizationMode
-import com.mapbox.maps.MapInitOptions
-import com.mapbox.maps.MapView
-import com.mapbox.maps.MapboxMap
-import com.mapbox.maps.OfflineManager
-import com.mapbox.maps.Style
-import com.mapbox.maps.StylePackLoadOptions
-import com.mapbox.maps.TilesetDescriptorOptions
+import com.mapbox.geojson.Polygon
+import com.mapbox.maps.*
 import com.mapbox.maps.dsl.cameraOptions
-import com.mapbox.maps.mapsOptions
 import com.mapbox.maps.plugin.animation.MapAnimationOptions.Companion.mapAnimationOptions
 import com.mapbox.maps.plugin.animation.flyTo
 import com.mapbox.maps.plugin.annotation.annotations
 import com.mapbox.maps.plugin.annotation.generated.CircleAnnotationOptions
 import com.mapbox.maps.plugin.annotation.generated.createCircleAnnotationManager
-import com.capstone.ttm.R
-import com.capstone.ttm.databinding.ActivityOfflineBinding
+import com.mapbox.maps.plugin.locationcomponent.location
+import com.mapbox.navigation.base.extensions.applyDefaultNavigationOptions
+import com.mapbox.navigation.base.options.NavigationOptions
+import com.mapbox.navigation.base.options.RoutingTilesOptions
+import com.mapbox.navigation.base.route.RouterFailure
+import com.mapbox.navigation.base.route.RouterOrigin
+import com.mapbox.navigation.base.route.NavigationRoute
+import com.mapbox.navigation.base.route.NavigationRouterCallback
+import com.mapbox.navigation.core.MapboxNavigation
+import com.mapbox.navigation.core.MapboxNavigationProvider
 import kotlinx.coroutines.launch
+import com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineApi
+import com.mapbox.navigation.core.trip.session.RouteProgressObserver
+import com.mapbox.navigation.ui.maps.route.line.api.MapboxRouteLineView
+import com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineApiOptions
+import com.mapbox.navigation.ui.maps.route.line.model.MapboxRouteLineViewOptions
 
-/**
- * Example app that shows how to use OfflineManager and TileStore to
- * download regions for offline use.
- *
- * Please refer to our [offline guide](https://docs.mapbox.com/android/maps/guides/offline/#limits) for the limitations of the offline usage.
- */
-class MainActivity : AppCompatActivity() {
+
+class MainActivity : AppCompatActivity(), PermissionsListener {
     // We use the default tile store
+    private lateinit var mapboxNavigation: MapboxNavigation
     private val tileStore: TileStore = MapboxOptions.mapsOptions.tileStore!!
     private val offlineManager: OfflineManager = OfflineManager()
     private val offlineLogsAdapter: OfflineLogsAdapter = OfflineLogsAdapter()
     private lateinit var binding: ActivityOfflineBinding
+    // ── 클래스 맨 위에
+    private lateinit var routeLineApi: MapboxRouteLineApi
+    private lateinit var routeLineView: MapboxRouteLineView
+    private var mapStyle: Style? = null
+    lateinit var permissionsManager: PermissionsManager
+
     private val cancelables = mutableListOf<Cancelable>()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (PermissionsManager.areLocationPermissionsGranted(this)) {
+            // 위치 권한이 이미 허용됨: 오프라인 네비게이션 로직 실행
+        } else {
+            permissionsManager = PermissionsManager(this)
+            permissionsManager.requestLocationPermissions(this)
+        }
         binding = ActivityOfflineBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Initialize a logger that writes into the recycler view
+        MapboxOptions.accessToken = "sk.eyJ1IjoiaHVuOTI2NCIsImEiOiJjbTk3NnZkeTMwNGlqMmlwbGZ1a2F0MDY2In0.GjwPINRgqdA1OfEW0LjbGw"   // ← 토큰 하드코딩 대신 BuildConfig 권장
+
         binding.recycler.layoutManager = LinearLayoutManager(this)
         binding.recycler.adapter = offlineLogsAdapter
+
+        val routingTilesOptions = RoutingTilesOptions.Builder()
+            .tileStore(tileStore)
+            .build()
+        val navOptions = NavigationOptions.Builder(this)
+            .routingTilesOptions(routingTilesOptions)
+            .build()
+
+        mapboxNavigation = MapboxNavigationProvider.create(navOptions)
 
         prepareDownloadButton()
     }
 
     private fun prepareDownloadButton() {
-        updateButton("DOWNLOAD") {
-            downloadOfflineRegion()
-        }
+        updateButton("DOWNLOAD") { downloadOfflineRegion() }
     }
 
     private fun prepareCancelButton() {
@@ -83,31 +107,33 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun prepareViewMapButton() {
-        // Disable network stack, so that the map can only load from downloaded region.
         OfflineSwitch.getInstance().isMapboxStackConnected = false
         logInfoMessage("Mapbox network stack disabled.")
-        lifecycleScope.launch {
-            updateButton("VIEW SATELLITE STREET MAP") {
-                val context = this@MainActivity
-                // create a Mapbox MapView
-                // Note that the MapView will use the current tile store set in MapboxOptions.mapsOptions.tileStore
-                // It must be the same TileStore that is used to create the tile regions. (i.e. the
-                // tileStorePath must be consistent).
-                val mapView = MapView(context, MapInitOptions(context, styleUri = Style.SATELLITE_STREETS))
-                binding.container.addView(mapView)
 
-                mapView.mapboxMap.setCamera(CameraOptions.Builder().zoom(ZOOM).center(HANSUNG_UNIV).build())
-                // Add a circle annotation to the offline geometry.
-                mapView.annotations.createCircleAnnotationManager().create(
-                    CircleAnnotationOptions()
-                        .withPoint(HANSUNG_UNIV)
-                        .withCircleColor(Color.RED)
+        updateButton("VIEW SATELLITE STREET MAP") {
+            val context = this@MainActivity
+            val mapView = MapView(context, MapInitOptions(context, styleUri = Style.SATELLITE_STREETS))
+            binding.container.addView(mapView)
+
+            // ★ 스타일 로드 후 RouteLine API/뷰 초기화
+            mapView.getMapboxMap().loadStyleUri(Style.SATELLITE_STREETS) { style ->
+                mapStyle = style
+                routeLineApi = MapboxRouteLineApi(
+                    MapboxRouteLineApiOptions.Builder().build()
                 )
-                prepareViewStandardMapButton(mapView)
+                routeLineView = MapboxRouteLineView(
+                    MapboxRouteLineViewOptions.Builder(this).build()
+                )
             }
+
+            mapView.mapboxMap.setCamera(CameraOptions.Builder().zoom(ZOOM).center(HANSUNG_UNIV).build())
+            mapView.annotations.createCircleAnnotationManager().create(
+                CircleAnnotationOptions().withPoint(HANSUNG_UNIV).withCircleColor(Color.RED)
+            )
+
+            prepareViewStandardMapButton(mapView)
         }
     }
-
     private fun prepareViewStandardMapButton(mapView: MapView) {
         lifecycleScope.launch {
             updateButton("VIEW STANDARD MAP") {
@@ -116,10 +142,7 @@ class MainActivity : AppCompatActivity() {
                 mapView.mapboxMap.flyTo(
                     cameraOptions {
                         center(
-                            Point.fromLngLat(
-                                139.76567069012344,
-                                35.68134814430844
-                            )
+                            Point.fromLngLat(127.0060, 37.58817)
                         )
                         zoom(15.0)
                         bearing(356.1)
@@ -127,31 +150,12 @@ class MainActivity : AppCompatActivity() {
                     },
                     mapAnimationOptions { duration(1000L) }
                 )
-                prepareShowDownloadedRegionButton()
+
             }
+            startNavigation(mapView)
         }
     }
 
-    private fun prepareShowDownloadedRegionButton() {
-        updateButton("SHOW DOWNLOADED REGIONS") {
-            showDownloadedRegions()
-            prepareRemoveOfflineRegionButton()
-        }
-    }
-
-    private fun prepareRemoveOfflineRegionButton() {
-        updateButton("REMOVE DOWNLOADED REGIONS") {
-            removeOfflineRegions()
-            showDownloadedRegions()
-            binding.container.removeAllViews()
-
-            // Re-enable the Mapbox network stack, so that the new offline region download can succeed.
-            OfflineSwitch.getInstance().isMapboxStackConnected = true
-            logInfoMessage("Mapbox network stack enabled.")
-
-            prepareDownloadButton()
-        }
-    }
 
     private fun updateButton(text: String, listener: View.OnClickListener) {
         binding.button.text = text
@@ -184,18 +188,17 @@ class MainActivity : AppCompatActivity() {
                 },
                 { expected ->
                     expected.value?.let { stylePack ->
-                        // Style pack download finishes successfully
                         logSuccessMessage("StylePack downloaded: $stylePack")
                         if (allResourcesDownloadLoaded()) {
-                            prepareViewMapButton()
+                            // ← 반드시 메인 스레드에서 실행
+                            runOnUiThread {
+                                prepareViewMapButton()
+                            }
                         } else {
                             logInfoMessage("Waiting for tile region download to be finished.")
                         }
                     }
-                    expected.error?.let {
-                        // Handle error occurred during the style pack download.
-                        logErrorMessage("StylePackError: $it")
-                    }
+                    expected.error?.let { logErrorMessage("StylePackError: $it") }
                 }
             )
         )
@@ -222,7 +225,7 @@ class MainActivity : AppCompatActivity() {
                         // Style pack download finishes successfully
                         logSuccessMessage("StylePack downloaded: $stylePack")
                         if (allResourcesDownloadLoaded()) {
-                            prepareViewMapButton()
+                            runOnUiThread { prepareViewMapButton() }
                         } else {
                             logInfoMessage("Waiting for tile region download to be finished.")
                         }
@@ -268,18 +271,47 @@ class MainActivity : AppCompatActivity() {
                     .build()
             )
         )
+        val satDescriptor = offlineManager.createTilesetDescriptor(
+            TilesetDescriptorOptions.Builder()
+                .styleURI(Style.SATELLITE_STREETS)
+                .pixelRatio(resources.displayMetrics.density)
+                .minZoom(0)
+                .maxZoom(16)
+                .build()
+        )
+        val stdDescriptor = offlineManager.createTilesetDescriptor(
+            TilesetDescriptorOptions.Builder()
+                .styleURI(Style.STANDARD)
+                .pixelRatio(resources.displayMetrics.density)
+                .minZoom(0)
+                .maxZoom(16)
+                .build()
+        )
+        // 네비게이션용 타일셋
+        val navDescriptor = mapboxNavigation.tilesetDescriptorFactory.getLatest()
+
+        // 3) 영역을 충분히 넓게 잡은 폴리곤 (한성대입구역 주변 + 캠퍼스)
+        val regionPolygon = Polygon.fromLngLats(listOf(listOf(
+            Point.fromLngLat(127.000, 37.595),  // 서북
+            Point.fromLngLat(127.000, 37.575),  // 남서
+            Point.fromLngLat(127.015, 37.575),  // 남동
+            Point.fromLngLat(127.015, 37.595),  // 동북
+            Point.fromLngLat(127.000, 37.595)   // 닫힌 고리
+        )))
+
 
         // Use the the default TileStore to load this region. You can create custom TileStores that are
         // unique for a particular file path, i.e. there is only ever one TileStore per unique path.
 
         // Note that the TileStore path must be the same with the TileStore used when initialise the MapView.
+        // 4) 한번에 스타일·맵·네비 타일 다운로드
+        val descriptors = listOf(satDescriptor, stdDescriptor, navDescriptor)
         cancelables.add(
             tileStore.loadTileRegion(
                 TILE_REGION_ID,
                 TileRegionLoadOptions.Builder()
-                    .geometry(HANSUNG_UNIV)
-                    .descriptors(tilesetDescriptors)
-                    .metadata(Value(TILE_REGION_METADATA))
+                    .geometry(regionPolygon)
+                    .descriptors(descriptors)
                     .acceptExpired(true)
                     .networkRestriction(NetworkRestriction.NONE)
                     .build(),
@@ -291,19 +323,18 @@ class MainActivity : AppCompatActivity() {
                     )
                 }
             ) { expected ->
-                // Tile pack download finishes successfully
                 expected.value?.let { region ->
                     logSuccessMessage("TileRegion downloaded: $region")
                     if (allResourcesDownloadLoaded()) {
-                        prepareViewMapButton()
-                    } else {
-                        logInfoMessage("Waiting for style pack download to be finished.")
+                        // **오프라인 모드 전환은 여기서만!**
+                        runOnUiThread {
+                            OfflineSwitch.getInstance().isMapboxStackConnected = false
+                            logInfoMessage("Mapbox network stack disabled.")
+                            prepareViewMapButton()
+                        }
                     }
                 }
-                expected.error?.let {
-                    // Handle error occurred during the tile region download.
-                    logErrorMessage("TileRegionError: $it")
-                }
+                expected.error?.let { logErrorMessage("TileRegionError: $it") }
             }
         )
         prepareCancelButton()
@@ -316,26 +347,7 @@ class MainActivity : AppCompatActivity() {
             binding.standardStylePackDownloadProgress.progress == binding.standardStylePackDownloadProgress.max &&
             binding.tilePackDownloadProgress.progress == binding.tilePackDownloadProgress.max
 
-    private fun showDownloadedRegions() {
-        // Get a list of tile regions that are currently available.
-        tileStore.getAllTileRegions { expected ->
-            expected.value?.let { tileRegionList ->
-                logInfoMessage("Existing tile regions: $tileRegionList")
-            }
-            expected.error?.let { tileRegionError ->
-                logErrorMessage("TileRegionError: $tileRegionError")
-            }
-        }
-        // Get a list of style packs that are currently available.
-        offlineManager.getAllStylePacks { expected ->
-            expected.value?.let { stylePackList ->
-                logInfoMessage("Existing style packs: $stylePackList")
-            }
-            expected.error?.let { stylePackError ->
-                logErrorMessage("StylePackError: $stylePackError")
-            }
-        }
-    }
+
 
     private fun removeOfflineRegions() {
         // Remove the tile region with the tile region ID.
@@ -405,15 +417,80 @@ class MainActivity : AppCompatActivity() {
     private fun logSuccessMessage(message: String) {
         offlineLogsAdapter.addLog(OfflineLog.Success(message))
     }
+    private fun startNavigation(mapView: MapView) {
+        val routingTilesOptions = RoutingTilesOptions.Builder()
+            .tileStore(tileStore)
+            .build()
+        val navOptions = NavigationOptions.Builder(this)
+            .routingTilesOptions(routingTilesOptions)
+            .build()
+        mapboxNavigation = MapboxNavigationProvider.create(navOptions)
 
+        val origin = Point.fromLngLat(127.00611, 37.58833)
+        val destination = HANSUNG_UNIV   // 예: 한성대 정문
+
+        val routeOptions = RouteOptions.builder()
+            .applyDefaultNavigationOptions()
+            .coordinatesList(listOf(origin, destination))
+            .build()
+
+        mapboxNavigation.requestRoutes(
+            routeOptions,
+            object : NavigationRouterCallback {
+                @RequiresPermission(allOf = [Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION])
+                override fun onRoutesReady(
+                    routes: List<NavigationRoute>,
+                    routerOrigin: String
+                ) {
+                    if (routes.isNotEmpty()) {
+                        mapboxNavigation.setNavigationRoutes(routes)
+                        mapboxNavigation.startTripSession()
+
+                        /* ★ 루트 라인 그리기 */
+                        routeLineApi.setNavigationRoutes(routes) { drawData ->
+                            mapStyle?.let { routeLineView.renderRouteDrawData(it, drawData) }
+                        }
+
+                        /* ★ 진행 상황에 따라 밴리싱 라인 업데이트 */
+                        mapboxNavigation.registerRouteProgressObserver(routeProgressObserver)
+                    }
+                }
+
+                override fun onFailure(reasons: List<RouterFailure>, routeOptions: RouteOptions) {
+                    Log.e(TAG, "Route request failed: $reasons")
+                }
+
+                override fun onCanceled(routeOptions: RouteOptions, @RouterOrigin routerOrigin: String) {
+                    Log.d(TAG, "Route request canceled")
+                }
+            }
+        )
+    }
+
+    /* ★ RouteProgressObserver 구현 */
+    private val routeProgressObserver = RouteProgressObserver { progress ->
+        mapStyle?.let { style ->
+            routeLineApi.updateWithRouteProgress(progress) { update ->
+                routeLineView.renderRouteLineUpdate(style, update)
+            }
+        }
+    }
     override fun onDestroy() {
         super.onDestroy()
-        // Cancel the current downloading jobs
         cancelables.forEach { it.cancel() }
         cancelables.clear()
-        // Remove downloaded style packs and tile regions.
+
+        /* ★ RouteLine/Observer 해제 */
+        if (::mapboxNavigation.isInitialized) {
+            mapboxNavigation.unregisterRouteProgressObserver(routeProgressObserver)
+
+        }
+        if (::routeLineApi.isInitialized) {
+            routeLineApi.cancel()
+            routeLineView.cancel()
+        }
+
         removeOfflineRegions()
-        // Bring back the network connectivity when exiting the OfflineActivity.
         OfflineSwitch.getInstance().isMapboxStackConnected = true
     }
 
@@ -472,12 +549,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val TAG = "OfflineActivity"
+        private const val TAG = "MainActivity"
         private const val ZOOM = 12.0
         private val HANSUNG_UNIV = Point.fromLngLat(127.009506, 37.582174)
         private const val TILE_REGION_ID = "myTileRegion"
         private const val STYLE_PACK_SATELLITE_STREET_METADATA = "my-satellite-street-style-pack"
         private const val STYLE_PACK_STANDARD_METADATA = "my-standard-style-pack"
         private const val TILE_REGION_METADATA = "my-offline-region"
+    }
+
+    override fun onExplanationNeeded(permissionsToExplain: List<String>) {
+        TODO("Not yet implemented")
+    }
+
+    override fun onPermissionResult(granted: Boolean) {
+        TODO("Not yet implemented")
     }
 }
