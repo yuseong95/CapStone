@@ -1,6 +1,7 @@
 package com.example.capstone_whisper.asr
 
 import android.content.Context
+import android.util.Log
 import com.example.capstone_whisper.engine.WhisperEngine
 import java.io.ByteArrayOutputStream
 
@@ -12,6 +13,7 @@ class Whisper(private val context: Context) {
         if(isInit){
             resultString = mWhisperEngine.transcribeFile(wavData)
         }
+        Log.i("WORDTEST", "[TEST] : RESULT = \$resultString")
         return resultString
     }
 }

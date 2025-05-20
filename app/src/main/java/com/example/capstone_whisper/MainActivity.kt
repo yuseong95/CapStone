@@ -1,66 +1,43 @@
+@file:OptIn(ExperimentalMaterial3Api::class)
+
 package com.example.capstone_whisper
 
 import android.Manifest
 import android.content.Context
+import android.media.AudioFormat
+import android.media.AudioRecord
+import android.media.MediaPlayer
+import android.media.MediaRecorder
 import android.os.Bundle
-import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
-import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
-import com.example.capstone_whisper.asr.Whisper
-import com.example.capstone_whisper.engine.WhisperEngine
-import com.example.capstone_whisper.ui.theme.CapstoneWhisperTheme
+import com.example.capstone_whisper.asr.PorcupineWakeWordDetector
 import com.example.capstone_whisper.asr.Recorder
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
-import java.io.File
+import com.example.capstone_whisper.asr.Whisper
+import com.example.capstone_whisper.ui.theme.CapstoneWhisperTheme
+import kotlinx.coroutines.*
+import java.io.IOException
+import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.abs
 
 class MainActivity : ComponentActivity() {
-/*    private val ENGLISH_ONLY_MODEL_EXTENSION: String = ".en.tflite"
-
-    private val DEFAULT_MODEL_TO_USE: String = "whisper-tiny.tflite"
-    private val ENGLISH_ONLY_VOCAB_FILE: String = "filters_vocab_en.bin"
-    private val MULTILINGUAL_VOCAB_FILE: String = "filters_vocab_multilingual.bin"
-    private val EXTENSIONS_TO_COPY: Array<String> = arrayOf("tflite", "bin", "wav", "pcm")
-
-    private var sdcardDataFolder: File? = null
-    private var selectedWaveFile: File? = null
-    private var selectedTfliteFile: File? = null*/
-
+    private var wakeWordDetector: PorcupineWakeWordDetector? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         setContent {
             CapstoneWhisperTheme {
-                // 초기 권한 상태 확인
                 var hasPermission by remember {
                     mutableStateOf(
                         ContextCompat.checkSelfPermission(
@@ -69,7 +46,6 @@ class MainActivity : ComponentActivity() {
                         ) == android.content.pm.PackageManager.PERMISSION_GRANTED
                     )
                 }
-
                 var permissionRequested by remember { mutableStateOf(false) }
 
                 val permissionLauncher = rememberLauncherForActivityResult(
@@ -79,7 +55,6 @@ class MainActivity : ComponentActivity() {
                     permissionRequested = true
                 }
 
-                // 처음 실행 시에만 권한 요청
                 LaunchedEffect(Unit) {
                     if (!hasPermission && !permissionRequested) {
                         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
@@ -87,60 +62,138 @@ class MainActivity : ComponentActivity() {
                     }
                 }
 
-                when {
-                    hasPermission -> {
-                        val audioRecorder = remember { Recorder(this) }
-                        val whisper = remember { Whisper(this) }
+                if (hasPermission) {
+                    val context = this
+                    val audioRecorder = remember { Recorder(context) }
+                    val whisper = remember { Whisper(context) }
+                    val isRecording = remember { AtomicBoolean(false) }
 
-                        AudioRecorderScreen(audioRecorder, whisper)
-                    }
+                    var transcribedText by remember { mutableStateOf("여기에 변환된 텍스트가 표시됩니다.") }
+                    var isUploading by remember { mutableStateOf(false) }
+                    var wakeWordDetected by remember { mutableStateOf(false) }
 
+                    wakeWordDetector = PorcupineWakeWordDetector(
+                        context = context,
+                        onWakeWordDetected = {
+                            runOnUiThread {
+                                if (!isUploading && isRecording.compareAndSet(false, true)) {
+                                    Toast.makeText(context, "whisper detected!", Toast.LENGTH_SHORT).show()
+                                    wakeWordDetected = true
+                                    playDetectVoiceAndStart(context, audioRecorder, whisper, wakeWordDetector, isRecording,
+                                        onStart = {
+                                            isUploading = true
+                                            wakeWordDetected = false
+                                        },
+                                        onComplete = {
+                                            transcribedText = it
+                                            isUploading = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    )
+                    wakeWordDetector?.start()
 
-                    permissionRequested -> {
-                        NoPermissionScreen()
-                    }
+                    AudioStatusScreen(isUploading, transcribedText, wakeWordDetected)
+                } else {
+                    if (!permissionRequested) LoadingScreen() else NoPermissionScreen()
+                }
+            }
+        }
+    }
 
-                    else -> {
-                        // 초기 요청 전 로딩 화면
-                        LoadingScreen()
-                    }
+    override fun onDestroy() {
+        super.onDestroy()
+        wakeWordDetector?.stop()
+    }
+}
+
+fun startRecordingAndTranscribe(
+    recorder: Recorder,
+    whisper: Whisper,
+    wakeWordDetector: PorcupineWakeWordDetector?,
+    isRecording: AtomicBoolean,
+    onStart: () -> Unit,
+    onComplete: (String) -> Unit
+) {
+    onStart()
+    wakeWordDetector?.stop()
+    recorder.startRecording()
+
+    isRecording.set(true)
+
+    val silenceThreshold = 0.03f
+    val silenceLimit = 2000L
+    var lastSoundTime = System.currentTimeMillis()
+
+    recorder.read { buffer, readSize ->
+        val hasSound = buffer.take(readSize).any { abs(it / 32768.0f) > silenceThreshold }
+
+        if (hasSound) {
+            lastSoundTime = System.currentTimeMillis()
+        }
+
+        if (System.currentTimeMillis() - lastSoundTime >= silenceLimit) {
+            recorder.stopRecording()
+            isRecording.set(false)
+            wakeWordDetector?.start()
+
+            CoroutineScope(Dispatchers.IO).launch {
+                val result = whisper.transcribe(recorder.getRawData())
+                withContext(Dispatchers.Main) {
+                    onComplete(result)
                 }
             }
         }
     }
 }
+
+fun playDetectVoiceAndStart(
+    context: Context,
+    recorder: Recorder,
+    whisper: Whisper,
+    wakeWordDetector: PorcupineWakeWordDetector?,
+    isRecording: AtomicBoolean,
+    onStart: () -> Unit,
+    onComplete: (String) -> Unit
+) {
+    try {
+        val afd = context.assets.openFd("detect_voice.wav")
+        val mediaPlayer = MediaPlayer().apply {
+            setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
+            prepare()
+            start()
+        }
+
+        mediaPlayer.setOnCompletionListener {
+            mediaPlayer.release()
+            startRecordingAndTranscribe(recorder, whisper, wakeWordDetector, isRecording, onStart, onComplete)
+        }
+    } catch (e: IOException) {
+        e.printStackTrace()
+        startRecordingAndTranscribe(recorder, whisper, wakeWordDetector, isRecording, onStart, onComplete)
+    }
+}
+
 @Composable
 fun NoPermissionScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         Text("권한이 필요합니다. 설정에서 앱 권한을 허용해주세요.")
     }
 }
 
 @Composable
 fun LoadingScreen() {
-    Box(
-        modifier = Modifier.fillMaxSize(),
-        contentAlignment = Alignment.Center
-    ) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         CircularProgressIndicator()
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AudioRecorderScreen(
-    audioRecorder: Recorder,
-    whisper: Whisper
-) {
-    var isRecording by remember { mutableStateOf(false) }
-    var transcribedText by remember { mutableStateOf("여기에 변환된 텍스트가 표시됩니다.") }
-    var isUploading by remember { mutableStateOf(false) }
-
+fun AudioStatusScreen(isUploading: Boolean, transcribedText: String, wakeWordDetected: Boolean) {
     Scaffold(
-        topBar = { TopAppBar(title = { Text("음성 녹음 및 변환") }) }
+        topBar = { TopAppBar(title = { Text("음성 인식 대기 중") }) }
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -149,37 +202,23 @@ fun AudioRecorderScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Button(
-                onClick = {
-                    if (!isRecording) {
-                        // 녹음 시작
-                        audioRecorder.startRecording()
-                        isRecording = true
-                    } else {
-                        // 녹음 정지 + 변환
-                        isRecording = false
-                        isUploading = true
-                        audioRecorder.stopRecording()
-
-                        CoroutineScope(Dispatchers.IO).launch {
-                            val result = whisper.transcribe(audioRecorder.getRawData())
-                            withContext(Dispatchers.Main) {
-                                transcribedText = result
-                                isUploading = false
-                            }
-                        }
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-                enabled = !isUploading
-            ) {
-                Text(if (isRecording) "녹음 중지 및 변환" else "녹음 시작")
+            if (wakeWordDetected) {
+                Text(
+                    text = "🔊 'whisper' 감지됨! 음성 인식 시작...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
 
             if (isUploading) {
                 Box(Modifier.fillMaxWidth()) {
                     CircularProgressIndicator(Modifier.align(Alignment.Center))
                 }
+                Text(
+                    text = "녹음중...",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary
+                )
             }
 
             Text(

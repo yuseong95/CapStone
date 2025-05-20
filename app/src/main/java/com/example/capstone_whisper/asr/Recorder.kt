@@ -7,93 +7,12 @@ import android.media.AudioFormat
 import android.media.AudioRecord
 import android.media.MediaRecorder
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.io.ByteArrayOutputStream
 
-/*
-class Recorder(private val context: Context, private val onSilenceDetected: (ByteArrayOutputStream) -> Unit) {
-    private var recorder: AudioRecord? = null
-    private var isRecording = false
-    private val pcmStream = ByteArrayOutputStream()
-
-    private val sampleRate = 16000
-    private val channelConfig = AudioFormat.CHANNEL_IN_MONO
-    private val audioFormat = AudioFormat.ENCODING_PCM_16BIT
-    private val bufferSize = AudioRecord.getMinBufferSize(sampleRate, channelConfig, audioFormat)
-
-    fun startRecording() {
-        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
-            throw SecurityException("RECORD_AUDIO permission not granted")
-        }
-
-        recorder = AudioRecord(MediaRecorder.AudioSource.MIC, sampleRate, channelConfig, audioFormat, bufferSize).apply {
-            startRecording()
-        }
-
-        isRecording = true
-        pcmStream.reset()
-
-        Thread {
-            val buffer = ShortArray(bufferSize)
-            val silenceThreshold = 500  // 약한 음량 (실제 값은 조정 가능)
-            val silenceDurationMillis = 2000L
-            var silenceStartTime: Long? = null
-
-            while (isRecording) {
-                val read = recorder?.read(buffer, 0, buffer.size) ?: 0
-                var isSilent = true
-
-                for (i in 0 until read) {
-                    val sample = buffer[i]
-                    if (sample > silenceThreshold || sample < -silenceThreshold) {
-                        isSilent = false
-                    }
-                    pcmStream.write(sample.toInt() and 0xFF)
-                    pcmStream.write(sample.toInt().shr(8) and 0xFF)
-                }
-
-                if (isSilent) {
-                    if (silenceStartTime == null) silenceStartTime = System.currentTimeMillis()
-                    val elapsed = System.currentTimeMillis() - silenceStartTime
-                    if (elapsed > silenceDurationMillis) {
-                        stopRecording()
-                        onSilenceDetected()
-                        break
-                    }
-                } else {
-                    silenceStartTime = null
-                }
-            }
-        }.start()
-    }
-
-    fun stopRecording() {
-        isRecording = false
-        recorder?.apply {
-            stop()
-            release()
-        }
-        recorder = null
-    }
-
-    fun getRawData(): ByteArrayOutputStream {
-        return pcmStream
-    }
-
-    fun getPcmData(): FloatArray {
-        val bytes = pcmStream.toByteArray()
-        val sampleCount = bytes.size / 2
-        return FloatArray(sampleCount) { i ->
-            val lo = bytes[2 * i].toInt() and 0xFF
-            val hi = bytes[2 * i + 1].toInt()
-            ((hi shl 8) or lo) / 32768.0f
-        }
-    }
-}*/
-
-/**
- * AudioRecord 기반 PCM 녹음기.
- * RECORD_AUDIO 권한을 사전에 확인하고, 권한 부족 시 SecurityException을 던집니다.
- */
 class Recorder(private val context: Context) {
     private var recorder: AudioRecord? = null
     private var isRecording = false
@@ -102,22 +21,20 @@ class Recorder(private val context: Context) {
     private val sampleRate = 16000
     private val channelConfig = AudioFormat.CHANNEL_IN_MONO
     private val audioFormat = AudioFormat.ENCODING_PCM_16BIT
-    private val bufferSize = AudioRecord.getMinBufferSize(
-        sampleRate,
+    private val bufferSize = AudioRecord.getMinBufferSize(sampleRate,
         channelConfig,
         audioFormat
     )
 
-/*
-     * 녹음 시작 전 RECORD_AUDIO 권한 확인
-     * 권한 없으면 SecurityException 발생
-*/
+    private var readCallback: ((ShortArray, Int) -> Unit)? = null
 
+    /**
+     * 녹음 시작 (권한 확인 포함)
+     */
     fun startRecording() {
-        if (ContextCompat.checkSelfPermission(
-                context,
+        if (ContextCompat.checkSelfPermission(context,
                 Manifest.permission.RECORD_AUDIO
-            ) != PackageManager.PERMISSION_GRANTED
+        ) != PackageManager.PERMISSION_GRANTED
         ) {
             throw SecurityException("RECORD_AUDIO permission not granted")
         }
@@ -131,7 +48,6 @@ class Recorder(private val context: Context) {
                 bufferSize
             ).apply { startRecording() }
         } catch (e: SecurityException) {
-            // 권한 거부 처리
             recorder = null
             throw e
         }
@@ -139,24 +55,29 @@ class Recorder(private val context: Context) {
         isRecording = true
         pcmStream.reset()
 
-        Thread {
+        CoroutineScope(Dispatchers.IO).launch {
             val buffer = ShortArray(bufferSize)
             while (isRecording) {
                 val read = recorder?.read(buffer, 0, buffer.size) ?: 0
+
                 if (read > 0) {
-                    // Little-endian PCM16 저장
                     for (i in 0 until read) {
                         val sample = buffer[i]
                         pcmStream.write(sample.toInt() and 0xFF)
                         pcmStream.write(sample.toInt().shr(8) and 0xFF)
                     }
+                    readCallback?.invoke(buffer, read)
                 }
+
+                delay(20)
             }
-        }.start()
+        }
+
     }
 
-/* 녹음 중지*/
-
+    /**
+     * 녹음 중지
+     */
     fun stopRecording() {
         isRecording = false
         recorder?.apply {
@@ -166,22 +87,18 @@ class Recorder(private val context: Context) {
         recorder = null
     }
 
-/*
-     * 녹음된 PCM 데이터를 FloatArray로 변환
-*/
-
-    fun getRawData():ByteArrayOutputStream{
+    /**
+     * 녹음된 데이터 반환 (ByteArrayOutputStream 형태)
+     */
+    fun getRawData(): ByteArrayOutputStream {
         return pcmStream
     }
 
-    /*    fun getPcmData(): FloatArray {
-        val bytes = pcmStream.toByteArray()
-        val sampleCount = bytes.size / 2
-        return FloatArray(sampleCount) { i ->
-            val lo = bytes[2 * i].toInt() and 0xFF
-            val hi = bytes[2 * i + 1].toInt()
-            ((hi shl 8) or lo) / 32768.0f
-        }
-    }*/
+    /**
+     * 실시간 오디오 버퍼 처리 콜백 설정
+     * @param callback (ShortArray, readSize) -> Unit
+     */
+    fun read(callback: (ShortArray, Int) -> Unit) {
+        this.readCallback = callback
+    }
 }
-
