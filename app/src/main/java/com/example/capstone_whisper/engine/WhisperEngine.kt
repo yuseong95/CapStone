@@ -33,14 +33,14 @@ internal class WhisperEngine(private val context: Context) : WhisperEngineInterf
     @Throws(IOException::class)
     override fun initialize(): Boolean {
         // Load model
-        val tfliteModel = loadModelFile(context, "whisper-tiny.en.tflite")
+        val tfliteModel = loadModelFile(context, "whisper-tiny.tflite")
         val options = Interpreter.Options().apply {
             setNumThreads(Runtime.getRuntime().availableProcessors())
         }
         whisperTiny = Interpreter(tfliteModel,options)
 
         // Load filters and vocab
-        val vocabInputStream = context.assets.open("filters_vocab_en.bin")
+        val vocabInputStream = context.assets.open("filters_vocab_multilingual.bin")
         val success = mWhisperFunc.loadFiltersAndVocab(vocabInputStream)
         if (success) {
             mIsInitialized = true

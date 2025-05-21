@@ -85,6 +85,7 @@ class Recorder(private val context: Context) {
             release()
         }
         recorder = null
+        readCallback = null
     }
 
     /**

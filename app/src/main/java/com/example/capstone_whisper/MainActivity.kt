@@ -123,30 +123,53 @@ fun startRecordingAndTranscribe(
 
     isRecording.set(true)
 
-    val silenceThreshold = 0.03f
-    val silenceLimit = 2000L
+    val silenceThreshold = 0.01f
+    val silenceLimit = 1000L
     var lastSoundTime = System.currentTimeMillis()
 
+    var alreadyStopped = false
+
     recorder.read { buffer, readSize ->
-        val hasSound = buffer.take(readSize).any { abs(it / 32768.0f) > silenceThreshold }
+        if (alreadyStopped) return@read
+
+        val hasSound = !isSilent(buffer, readSize, silenceThreshold)
 
         if (hasSound) {
             lastSoundTime = System.currentTimeMillis()
         }
 
         if (System.currentTimeMillis() - lastSoundTime >= silenceLimit) {
+            alreadyStopped = true  // ✅ 재호출 방지
             recorder.stopRecording()
             isRecording.set(false)
             wakeWordDetector?.start()
 
             CoroutineScope(Dispatchers.IO).launch {
-                val result = whisper.transcribe(recorder.getRawData())
+                val raw = recorder.getRawData()
+                if (raw.size() == 0) {
+                    withContext(Dispatchers.Main) {
+                        onComplete("⚠️ 음성이 감지되지 않았습니다.")
+                    }
+                    return@launch
+                }
+                val result = whisper.transcribe(raw)
                 withContext(Dispatchers.Main) {
                     onComplete(result)
                 }
             }
         }
     }
+
+}
+
+fun isSilent(buffer: ShortArray, readSize: Int, threshold: Float): Boolean {
+    var sum = 0.0
+    for (i in 0 until readSize) {
+        val sample = buffer[i] / 32768.0f
+        sum += sample * sample
+    }
+    val rms = kotlin.math.sqrt(sum / readSize)
+    return rms < threshold
 }
 
 fun playDetectVoiceAndStart(

@@ -13,7 +13,7 @@ class Whisper(private val context: Context) {
         if(isInit){
             resultString = mWhisperEngine.transcribeFile(wavData)
         }
-        Log.i("WORDTEST", "[TEST] : RESULT = \$resultString")
+        Log.i("WORDTEST", "[TEST] : RESULT = $resultString")
         return resultString
     }
 }
