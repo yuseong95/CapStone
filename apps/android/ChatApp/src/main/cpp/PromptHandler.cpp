@@ -10,15 +10,21 @@ using namespace AppUtils;
 // Llama3 prompt
 constexpr const std::string_view c_bot_name = "QBot";
 constexpr const std::string_view c_first_prompt_prefix_part_1 =
-    "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nYour name is ";
+        "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n\nYour name is ";
 constexpr const std::string_view c_first_prompt_prefix_part_2 =
-    "and you are a helpful AI assistant. Please keep answers concise and to the point. <|eot_id|>";
+        "and you are a helpful AI assistant. Follow these instructions exactly:\n"
+        "- If the user asks where to go or how to get somewhere (e.g., '어디로 가야 해?', '어디야?', '거기 어떻게 가?'), respond with **only** the following format—no extra text, line breaks, or explanations: <Place-name>,<Latitude>,<Longitude>\n"
+        "\n"
+        "Example  \n"
+        "Seoul Station,37.5563,126.9723\n"
+        "- For all other questions, respond naturally and informatively in full Korean sentences.\n"
+        "<|eot_id|>";
 constexpr const std::string_view c_prompt_prefix = "<|start_header_id|>user<|end_header_id|>\n\n";
 constexpr const std::string_view c_end_of_prompt = "<|eot_id|>";
 constexpr const std::string_view c_assistant_header = "<|start_header_id|>assistant<|end_header_id|>\n\n";
 
 PromptHandler::PromptHandler()
-    : m_is_first_prompt(true)
+        : m_is_first_prompt(true)
 {
 }
 
