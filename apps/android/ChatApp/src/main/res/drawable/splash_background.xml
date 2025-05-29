@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 배경색 -->
+    <item
+        android:drawable="@color/white" />
+
+    <!-- 중앙에 로고 표시 -->
+    <item
+        android:drawable="@mipmap/ic_launcher"
+        android:gravity="center" />
+</layer-list>

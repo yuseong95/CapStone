@@ -1,0 +1,39 @@
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/white">
+
+    <!-- 로고 + 워딩 묶음 -->
+    <LinearLayout
+        android:orientation="vertical"
+        android:gravity="center"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center">
+
+        <!-- 중앙 로고 -->
+        <ImageView
+            android:layout_width="175dp"
+            android:layout_height="87dp"
+            android:src="@drawable/qaulbotlogo" />
+
+        <!-- 로고 아래 워딩 -->
+        <TextView
+            android:id="@+id/splash_text"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="OFF QUAL BOT"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:textColor="@color/black"
+            android:layout_marginTop="16dp"/>
+    </LinearLayout>
+
+    <!-- 바닥에 로딩 인디케이터 -->
+    <ProgressBar
+        style="?android:attr/progressBarStyleLarge"
+        android:layout_gravity="center|bottom"
+        android:layout_marginBottom="80dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"/>
+</FrameLayout>

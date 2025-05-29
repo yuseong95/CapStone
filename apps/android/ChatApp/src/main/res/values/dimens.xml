@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 기본 여백 -->
+    <dimen name="margin_small">8dp</dimen>
+    <dimen name="margin_medium">16dp</dimen>
+    <dimen name="margin_large">24dp</dimen>
+    <dimen name="margin_xlarge">32dp</dimen>
+
+    <!-- 패딩 -->
+    <dimen name="padding_small">8dp</dimen>
+    <dimen name="padding_medium">16dp</dimen>
+    <dimen name="padding_large">24dp</dimen>
+
+    <!-- 버튼 크기 -->
+    <dimen name="button_height">56dp</dimen>
+    <dimen name="fab_size">56dp</dimen>
+    <dimen name="mini_fab_size">40dp</dimen>
+
+    <!-- 아이콘 크기 -->
+    <dimen name="icon_small">16dp</dimen>
+    <dimen name="icon_medium">24dp</dimen>
+    <dimen name="icon_large">32dp</dimen>
+
+    <!-- 텍스트 크기 -->
+    <dimen name="text_size_small">12sp</dimen>
+    <dimen name="text_size_medium">14sp</dimen>
+    <dimen name="text_size_large">16sp</dimen>
+    <dimen name="text_size_xlarge">18sp</dimen>
+    <dimen name="text_size_title">20sp</dimen>
+
+    <!-- UI 특정 크기들 -->
+    <dimen name="search_container_height">56dp</dimen>
+    <dimen name="bottom_nav_height">60dp</dimen>
+    <dimen name="bottom_nav_width">312dp</dimen>
+    <dimen name="panel_corner_radius">20dp</dimen>
+    <dimen name="button_corner_radius">28dp</dimen>
+    <dimen name="card_corner_radius">12dp</dimen>
+    <dimen name="small_corner_radius">8dp</dimen>
+    <dimen name="handle_bar_width">40dp</dimen>
+    <dimen name="handle_bar_height">4dp</dimen>
+
+    <!-- 엘리베이션 -->
+    <dimen name="elevation_small">4dp</dimen>
+    <dimen name="elevation_medium">8dp</dimen>
+    <dimen name="elevation_large">16dp</dimen>
+    <dimen name="elevation_xlarge">24dp</dimen>
+
+    <!-- 버튼 관련 크기 -->
+    <dimen name="main_action_button_height">64dp</dimen>
+    <dimen name="main_action_button_text_size">18sp</dimen>
+
+    <!-- 네비게이션 바 관련 크기 -->
+    <dimen name="bottom_nav_item_text_size">11sp</dimen>
+    <dimen name="bottom_nav_margin_bottom">16dp</dimen>
+</resources>

@@ -1,13 +1,85 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
-    <color name="black">#FF000000</color>
-    <color name="white">#FFFFFFFF</color>
     <color name="bot_color">#9A9C27B0</color>
     <color name="user_color">#2196F3</color>
     <color name="transparent">#00FFFFFF</color>
+
+<!-- 기존 컬러들 -->
+    <color name="purple_200">#FFBB86FC</color>
+    <color name="purple_500">#FF6200EE</color>
+<color name="purple_700">#FF3700B3</color>
+<color name="teal_200">#FF03DAC5</color>
+<color name="teal_700">#FF018786</color>
+<color name="black">#FF000000</color>
+<color name="white">#FFFFFFFF</color>
+
+<!-- 새로운 UI 컬러들 -->
+
+<!-- Primary Colors -->
+<color name="primary_color">#FF2196F3</color>
+<color name="primary_dark">#FF1976D2</color>
+<color name="accent_color">#FF03DAC5</color>
+
+<!-- Search Container -->
+<color name="search_container_background">#FFFFFFFF</color>
+<color name="search_container_border">#FFE0E0E0</color>
+<color name="search_bar_background">#FFFFFFFF</color>
+<color name="overlay_background">#FFFFFFFF</color>
+<color name="results_background">#FFFFFFFF</color>
+
+<!-- Navigation Bar -->
+<color name="nav_background">#E6FFFFFF</color>
+<color name="nav_icon_active">#FF2196F3</color>
+<color name="nav_icon_inactive">#FF9E9E9E</color>
+<color name="nav_text_active">#FF2196F3</color>
+<color name="nav_text_inactive">#FF9E9E9E</color>
+
+<!-- Panels -->
+<color name="panel_background">#FFFFFFFF</color>
+<color name="panel_title_color">#FF212121</color>
+<color name="handle_bar_color">#FFE0E0E0</color>
+
+<!-- Mode Options -->
+<color name="mode_option_background">#FFFFFFFF</color>
+<color name="mode_option_border">#FFE0E0E0</color>
+<color name="mode_option_pressed">#FFF5F5F5</color>
+<color name="mode_icon_color">#FF616161</color>
+<color name="mode_title_color">#FF212121</color>
+<color name="mode_desc_color">#FF757575</color>
+
+<!-- Language Options -->
+<color name="language_option_background">#FFFFFFFF</color>
+<color name="language_option_border">#FFE0E0E0</color>
+<color name="language_option_pressed">#FFF5F5F5</color>
+<color name="language_option_selected">#FFF0F8FF</color>
+<color name="language_text_color">#FF212121</color>
+
+<!-- Settings -->
+<color name="setting_label_color">#FF212121</color>
+<color name="setting_option_background">#FFFFFFFF</color>
+<color name="setting_option_pressed">#FFF5F5F5</color>
+<color name="setting_icon_color">#FF616161</color>
+<color name="setting_title_color">#FF212121</color>
+<color name="setting_desc_color">#FF757575</color>
+<color name="setting_arrow_color">#FFE0E0E0</color>
+
+<!-- Buttons -->
+<color name="primary_button">#FF2196F3</color>
+<color name="secondary_button">#FFE0E0E0</color>
+<color name="fab_background">#FFFFFFFF</color>
+<color name="fab_icon">#FF616161</color>
+
+<!-- Text Colors -->
+<color name="icon_color">#FF9E9E9E</color>
+<color name="hint_text_color">#FFB0BEC5</color>
+
+<!-- Navigation Guidance -->
+<color name="guidance_background">#FFFFFFFF</color>
+<color name="progress_background">#FFFFFFFF</color>
+
+<!-- Status -->
+<color name="online_status">#FF4CAF50</color>
+<color name="offline_status">#FFFF9800</color>
+<color name="error_color">#FFF44336</color>
+
 </resources>

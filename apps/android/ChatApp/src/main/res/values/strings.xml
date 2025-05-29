@@ -1,6 +1,80 @@
 <resources>
-    <string name="app_name">ChatApp</string>
+    <string name="app_name">OffQualBot</string>
     <string name="chat_with_llama_3_2_3b">Chat with Llama 3.2 3B</string>
     <string name="user_hint_msg">What\'s on your mind?</string>
     <string name="sends_user_message">Sends user message</string>
+
+    <!-- Navigation -->
+    <string name="nav_home">홈</string>
+    <string name="nav_navigation">내비게이션</string>
+    <string name="nav_settings">설정</string>
+
+    <!-- Search -->
+    <string name="search_hint">목적지 검색</string>
+    <string name="search_detailed_hint">랜드마크나 주소를 입력하세요</string>
+
+    <!-- Navigation Modes -->
+    <string name="navigation_mode_title">내비게이션 모드</string>
+    <string name="driving_mode">자동차</string>
+    <string name="driving_mode_desc">최적화된 도로 경로</string>
+    <string name="walking_mode">도보</string>
+    <string name="walking_mode_desc">보행자 전용 경로</string>
+    <string name="cycling_mode">자전거</string>
+    <string name="cycling_mode_desc">자전거 도로 우선</string>
+
+    <!-- Settings -->
+    <string name="settings_title">설정</string>
+    <string name="language_setting">언어 설정</string>
+    <string name="korean">한국어</string>
+    <string name="english">English</string>
+
+    <string name="offline_maps">오프라인 지도</string>
+    <string name="offline_maps_desc">지도 다운로드 관리</string>
+
+    <string name="app_info">앱 정보</string>
+    <string name="app_info_desc">버전 및 라이선스</string>
+
+    <!-- Buttons -->
+    <string name="start_navigation">내비게이션 시작</string>
+    <string name="cancel_navigation">내비게이션 취소</string>
+    <string name="recenter_camera">위치로 이동</string>
+
+    <!-- Messages -->
+    <string name="destination_set">목적지가 설정되었습니다</string>
+    <string name="navigation_started">내비게이션이 시작되었습니다</string>
+    <string name="navigation_canceled">내비게이션이 취소되었습니다</string>
+    <string name="location_permission_required">위치 권한이 필요합니다</string>
+    <string name="network_required_for_search">검색 기능은 인터넷 연결이 필요합니다</string>
+    <string name="offline_mode_active">오프라인 모드 활성화</string>
+    <string name="online_mode_active">온라인 모드 활성화</string>
+
+    <!-- Error Messages -->
+    <string name="route_not_found">경로를 찾을 수 없습니다</string>
+    <string name="search_no_results">검색 결과가 없습니다</string>
+    <string name="initialization_error">초기화 중 오류가 발생했습니다</string>
+
+    <!-- 더 짧은 버튼 텍스트 -->
+    <string name="start_navigation_short">시작</string>
+    <string name="cancel_navigation_short">취소</string>
+
+    <!-- 경로 정보 -->
+    <string name="total_distance">총 거리</string>
+    <string name="estimated_time">예상 시간</string>
+    <string name="arrival_time">도착 시간</string>
+
+    <!-- 내비게이션 종료 확인 -->
+    <string name="navigation_exit_title">내비게이션 종료</string>
+    <string name="navigation_exit_description">내비게이션 안내를 종료하시겠습니까?\n시간이 지나면 자동으로 내비게이션이 종료됩니다.</string>
+    <string name="continue_navigation">계속하기</string>
+    <string name="exit_navigation">종료</string>
+    <string name="auto_exit_in">자동 종료까지</string>
+    <string name="seconds">초</string>
+
+    <string name="download_region">지역 다운로드</string>
+    <string name="delete_region">지역 삭제</string>
+    <string name="replace_existing_region">기존 지역 교체</string>
+    <string name="cancel_download">다운로드 취소</string>
+    <string name="metropolitan_area">수도권 (서울·경기·인천)</string>
+    <string name="network_required_for_download">오프라인 지도 다운로드는 인터넷 연결이 필요합니다</string>
+    <string name="download_replace_warning">현재 다운로드된 지역이 모두 삭제됩니다. 계속하시겠습니까?</string>
 </resources>
