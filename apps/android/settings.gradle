@@ -38,4 +38,4 @@ dependencyResolutionManagement {
 rootProject.name = "Qualcomm AI Hub Android Sample Apps"
 
 include ':ChatApp'
-//include ':whisper'
+include ':whisper'

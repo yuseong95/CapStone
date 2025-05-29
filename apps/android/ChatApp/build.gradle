@@ -119,7 +119,7 @@ dependencies {
     implementation "androidx.constraintlayout:constraintlayout:2.2.0"
 
     //whisper
-   // implementation (project(":whisper"))
+    implementation (project(":whisper"))
     implementation("com.google.mlkit:translate:17.0.2")
     // Mapbox Navigation SDK
     implementation"com.mapbox.navigationcore:android:3.9.0-rc.1"
