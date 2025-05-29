@@ -1,19 +1,17 @@
-import java.nio.file.Paths
-
 plugins {
     id "com.android.application"
+    alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
 }
 
-// Path to local QAIRT SDK.
-// Download QAIRT SDK from https://qpm.qualcomm.com/#/main/tools/details/Qualcomm_AI_Runtime_SDK
-// e.g. "/opt/qcom/aistack/qairt/2.33.0.250327"
-//      "C:\\Qualcomm\\AIStack\\QAIRT\\2.33.0.250327"
-def qnnSDKLocalPath= ""   // <-- Please add QNN SDK root path
+// Path to local QNN SDK.
+// Download QNN SDK from https://qpm.qualcomm.com/#/main/tools/details/qualcomm_ai_engine_direct
+def qnnSDKLocalPath="C:\\Qualcomm\\AIStack\\QAIRT\\2.32.6.250402"
 
 // List of model assets
 def models = ["llama3_2_3b"]
 // Relative asset path for model configuration and binaries
-def relAssetsPath = "src/main/assets/models"
+def relAssetsPath = "src/main/assets/models/"
 def buildDir = project(":ChatApp").getLayout().getBuildDirectory()
 def libsDir = buildDir.dir("libs")
 
@@ -67,62 +65,103 @@ android {
     aaptOptions {
         noCompress "bin", "json"
     }
-
-    preBuild.doFirst {
-        if (!qnnSDKLocalPath) {
-            throw new RuntimeException("Please download QAIRT SDK and set `qnnSDKLocalPath` in build.gradle.");
-        }
-
-        // Check if QNN SDK is set correctly
-        def qnnSDKFile = file(qnnSDKLocalPath)
-        if (!qnnSDKFile.exists()) {
-            throw new RuntimeException("QAIRT SDK does not exist at $qnnSDKFile.absolutePath.");
-        }
-
-        // Copy required QNN libs
-        def genieLibFile = file(Paths.get(qnnSDKLocalPath, "lib", "aarch64-android", "libGenie.so"))
-        if (!genieLibFile.exists()) {
-            throw new RuntimeException("libGenie.so does not exist. Expected at $genieLibFile.absolutePath");
-        }
-
-        // Ensure genie config and tokenizer are present
-        models.each { model ->
-            def configFile = file(Paths.get(relAssetsPath, model, "genie_config.json"))
-            if (!configFile.exists()) {
-                throw new RuntimeException("Missing genie_config.json for $model. Expected at $configFile.absolutePath")
-            }
-            def tokenizerFile = file(Paths.get(relAssetsPath, model, "tokenizer.json"))
-            if (!tokenizerFile.exists()) {
-                throw new RuntimeException("Missing tokenizer.json for $model. Expected at $tokenizerFile.absolutePath")
-            }
-        }
-
-        def libsABIDir = buildDir.dir("libs/arm64-v8a")
-        copy {
-            from qnnSDKLocalPath
-
-            include "**/lib/aarch64-android/libQnnHtp.so"
-            include "**/lib/aarch64-android/libQnnHtpPrepare.so"
-            include "**/lib/aarch64-android/libQnnSystem.so"
-            include "**/lib/aarch64-android/libQnnSaver.so"
-            include "**/lib/hexagon-v**/unsigned/libQnnHtpV**Skel.so"
-            include "**/lib/aarch64-android/libQnnHtpV**Stub.so"
-
-            into libsABIDir
-            // Copy libraries without directory structure
-            eachFile {
-                path = name
-            }
-            includeEmptyDirs = false
-        }
+    kotlinOptions {
+        jvmTarget = '11'
     }
 }
+
+preBuild.doFirst {
+    // Check if QNN SDK is set correctly
+    if (!file(qnnSDKLocalPath).exists()) {
+        throw new RuntimeException("QNN SDK does not exist at " + qnnSDKLocalPath + ". Please set `qnnSDKLocalPath` in build.gradle.");
+    }
+
+    // Copy required QNN libs
+    if (!file(qnnSDKLocalPath + "/lib/aarch64-android/libGenie.so").exists()) {
+        throw new RuntimeException("libGenie does not exist. Please set `qnnSDKLocalPath` in build.gradle.");
+    }
+
+    // Ensure genie-config and tokenizer is present
+    models.each { model ->
+        if (!file(relAssetsPath + model + "/genie_config.json").exists()) {
+            throw new RuntimeException("Missing genie-config.json for " + model + ".")
+        }
+        if (!file(relAssetsPath + model + "/tokenizer.json").exists()) {
+            throw new RuntimeException("Missing tokenizer.json for " + model + ".")
+        }
+    }
+    def libsABIDir = buildDir.dir("libs/arm64-v8a")
+    copy {
+        from qnnSDKLocalPath
+
+        include "**/lib/aarch64-android/libQnnHtp.so"
+        include "**/lib/aarch64-android/libQnnHtpPrepare.so"
+        include "**/lib/aarch64-android/libQnnSystem.so"
+        include "**/lib/aarch64-android/libQnnSaver.so"
+        include "**/lib/hexagon-v**/unsigned/libQnnHtpV**Skel.so"
+        include "**/lib/aarch64-android/libQnnHtpV**Stub.so"
+
+        into libsABIDir
+        // Copy libraries without directory structure
+        eachFile {
+            path = name
+        }
+        includeEmptyDirs = false
+    }
+}
+
+
 
 dependencies {
     implementation fileTree(include: ["*.jar"], dir: "libs")
     implementation "androidx.appcompat:appcompat:1.7.0"
     implementation "com.google.android.material:material:1.12.0"
     implementation "androidx.constraintlayout:constraintlayout:2.2.0"
+
+    //whisper
+   // implementation (project(":whisper"))
+    implementation("com.google.mlkit:translate:17.0.2")
+    // Mapbox Navigation SDK
+    implementation"com.mapbox.navigationcore:android:3.9.0-rc.1"
+    implementation"com.mapbox.navigationcore:copilot:3.9.0-rc.1"
+    implementation"com.mapbox.navigationcore:ui-maps:3.9.0-rc.1"
+    implementation"com.mapbox.navigationcore:voice:3.9.0-rc.1"
+    implementation"com.mapbox.navigationcore:tripdata:3.9.0-rc.1"
+    implementation"com.mapbox.navigationcore:ui-components:3.9.0-rc.1"
+
+    // Mapbox Directions API - DirectionsCriteria 사용을 위해 추가
+    implementation"com.mapbox.mapboxsdk:mapbox-sdk-services:7.2.0"
+
+    // Mapbox Search SDK - 두 API 모두 지원
+    implementation"com.mapbox.search:mapbox-search-android:2.12.0-beta.1" // Search Box API + Geocoding API 포함
+    implementation"com.mapbox.search:place-autocomplete:2.12.0-beta.1"
+    implementation"com.mapbox.search:mapbox-search-android-ui:2.12.0-beta.1"
+
+    // Android UI Components
+    implementation"androidx.constraintlayout:constraintlayout:2.2.1"
+    implementation"androidx.recyclerview:recyclerview:1.3.2"
+    implementation"androidx.cardview:cardview:1.0.0"
+    implementation"com.google.android.material:material:1.11.0"
+    implementation 'androidx.core:core-ktx:1.16.0'
+
+    // Core Android dependencies
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.lifecycle.runtime.ktx)
+    implementation(libs.androidx.activity.compose)
+    implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.ui)
+    implementation(libs.androidx.ui.graphics)
+    implementation(libs.androidx.ui.tooling.preview)
+    implementation(libs.androidx.material3)
+
+    // Test dependencies
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.ui.test.junit4)
+    debugImplementation(libs.androidx.ui.tooling)
+    debugImplementation(libs.androidx.ui.test.manifest)
 }
 
 if (System.getProperty("user.dir") != project.rootDir.path) {

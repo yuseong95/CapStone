@@ -1,33 +1,41 @@
 pluginManagement {
     repositories {
         gradlePluginPortal()
-        google()
+        google {
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
         mavenCentral()
     }
 }
 
 dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
         google()
         mavenCentral()
+        // Mapbox Maven repository
+        maven {
+            url "https://api.mapbox.com/downloads/v2/releases/maven"
+            authentication {
+                basic(BasicAuthentication)
+            }
+            credentials {
+                // Do not change the username below.
+                // This should always be `mapbox` (not your username).
+                username "mapbox"
+                // Use the secret token you stored in gradle.properties as the password
+                password providers.gradleProperty("MAPBOX_DOWNLOADS_TOKEN").get()
+            }
+        }
     }
 }
 
 /** Project Name **/
 rootProject.name = "Qualcomm AI Hub Android Sample Apps"
 
-/** Applications **/
-if (Boolean.valueOf(properties["includeClassificationApp"])) {
-    include ':ImageClassification'
-}
-if (Boolean.valueOf(properties["includeSuperResolutionApp"])) {
-    include ':SuperResolution'
-}
-
-if (Boolean.valueOf(properties["includeSemanticSegmentationApp"])) {
-    include ':SemanticSegmentation'
-}
-
-if (Boolean.valueOf(properties["includeChatApp"])) {
-    include ':ChatApp'
-}
+include ':ChatApp'
+//include ':whisper'
